@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 from models import db, Restaurant, RestaurantPizza, Pizza
 from flask_migrate import Migrate
-from flask import Flask, request, make_response
+from flask import Flask, request, make_response, jsonify
 from flask_restful import Api, Resource
 import os
+from sqlalchemy.orm import Session
 
 BASE_DIR = os.path.abspath(os.path.dirname(__file__))
 DATABASE = os.environ.get("DB_URI", f"sqlite:///{os.path.join(BASE_DIR, 'app.db')}")
@@ -20,9 +21,111 @@ db.init_app(app)
 api = Api(app)
 
 
-@app.route("/")
-def index():
-    return "<h1>Code challenge</h1>"
+@app.route('/restaurants', methods=['GET'])
+def get_restaurants():
+    restaurants = Restaurant.query.all()
+    restaurant_data = []
+
+    for restaurant in restaurants:
+        restaurant_info = {
+            "id": restaurant.id,
+            "name": restaurant.name,
+            "address": restaurant.address
+        }
+        restaurant_data.append(restaurant_info)
+
+    return jsonify(restaurant_data), 200
+
+
+
+@app.route('/restaurants/<int:id>', methods=['GET'])
+def get_restaurant(id):
+    restaurant = Restaurant.query.filter_by(id=id).first()
+    if restaurant:
+        restaurant_dict = restaurant.to_dict()
+        return jsonify(restaurant_dict), 200
+    else:
+        return jsonify({'error': 'Restaurant not found'}), 404
+
+@app.route('/restaurants/<int:id>', methods=['DELETE'])
+def delete_restaurant(id):
+    restaurant = Restaurant.query.filter_by(id=id).first()
+    if restaurant:
+        db.session.delete(restaurant)
+        db.session.commit()
+        return jsonify({'message': 'Restaurant deleted successfully'}), 204
+    else:
+        return jsonify({'error': 'Restaurant not found'}), 404
+    
+@app.route('/pizzas', methods=['GET'])
+def get_pizzas():
+    pizzas = Pizza.query.all()
+    pizza_data = []
+
+    for pizza in pizzas:
+        pizza_info = {
+            "id": pizza.id,
+            "ingredients": pizza.ingredients,
+            "name": pizza.name
+        }
+        pizza_data.append(pizza_info)
+
+    return jsonify(pizza_data), 200
+
+
+@app.route('/restaurant_pizzas', methods=['POST'])
+def create_restaurant_pizza():
+    if request.method == 'POST':
+        # Access the data in the body of the request
+        data = request.json
+        
+        # Extract data from the request
+        price = data.get("price")
+        pizza_id = data.get("pizza_id")
+        restaurant_id = data.get("restaurant_id")
+        
+        # Check if both pizza_id and restaurant_id exist
+        pizza = Pizza.query.filter_by(id=pizza_id).first()
+        restaurant = Restaurant.query.filter_by(id=restaurant_id).first()
+        
+        if not (pizza and restaurant):
+            return jsonify({'errors': ['Pizza or restaurant not found']}), 404
+        
+        # Perform validation for price
+        if not 1 <= price <= 30:
+            return jsonify({'errors': ['validation errors']}), 400
+        
+        # Create a new RestaurantPizza object
+        new_restaurant_pizza = RestaurantPizza(
+            price=price,
+            pizza_id=pizza_id,
+            restaurant_id=restaurant_id
+        )
+        
+        # Add the new RestaurantPizza to the database session
+        db.session.add(new_restaurant_pizza)
+        db.session.commit()
+        
+        # Construct the response JSON data
+        response_data = {
+            "id": new_restaurant_pizza.id,
+            "price": new_restaurant_pizza.price,
+            "pizza": {
+                "id": pizza.id,
+                "name": pizza.name,
+                "ingredients": pizza.ingredients
+            },
+            "pizza_id": pizza_id,
+            "restaurant": {
+                "id": restaurant.id,
+                "name": restaurant.name,
+                "address": restaurant.address
+            },
+            "restaurant_id": restaurant_id
+        }
+        
+        # Send a response with the newly created RestaurantPizza data as JSON
+        return jsonify(response_data), 201
 
 
 if __name__ == "__main__":
