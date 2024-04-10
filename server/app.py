@@ -76,37 +76,32 @@ def get_pizzas():
 @app.route('/restaurant_pizzas', methods=['POST'])
 def create_restaurant_pizza():
     if request.method == 'POST':
-        # Access the data in the body of the request
+
         data = request.json
-        
-        # Extract data from the request
+
         price = data.get("price")
         pizza_id = data.get("pizza_id")
         restaurant_id = data.get("restaurant_id")
         
-        # Check if both pizza_id and restaurant_id exist
+
         pizza = Pizza.query.filter_by(id=pizza_id).first()
         restaurant = Restaurant.query.filter_by(id=restaurant_id).first()
         
         if not (pizza and restaurant):
             return jsonify({'errors': ['Pizza or restaurant not found']}), 404
         
-        # Perform validation for price
         if not 1 <= price <= 30:
             return jsonify({'errors': ['validation errors']}), 400
-        
-        # Create a new RestaurantPizza object
+
         new_restaurant_pizza = RestaurantPizza(
             price=price,
             pizza_id=pizza_id,
             restaurant_id=restaurant_id
         )
         
-        # Add the new RestaurantPizza to the database session
         db.session.add(new_restaurant_pizza)
         db.session.commit()
         
-        # Construct the response JSON data
         response_data = {
             "id": new_restaurant_pizza.id,
             "price": new_restaurant_pizza.price,
@@ -124,7 +119,6 @@ def create_restaurant_pizza():
             "restaurant_id": restaurant_id
         }
         
-        # Send a response with the newly created RestaurantPizza data as JSON
         return jsonify(response_data), 201
 
 

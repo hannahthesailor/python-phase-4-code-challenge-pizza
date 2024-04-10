@@ -1,9 +1,16 @@
 from flask_sqlalchemy import SQLAlchemy
-from sqlalchemy import ForeignKey
+from sqlalchemy import MetaData, ForeignKey
 from sqlalchemy.orm import validates, relationship
+from sqlalchemy.ext.associationproxy import association_proxy
 from sqlalchemy_serializer import SerializerMixin
 
-db = SQLAlchemy()
+metadata = MetaData(
+    naming_convention={
+        "fk": "fk_%(table_name)s_%(column_0_name)s_%(referred_table_name)s",
+    }
+)
+
+db = SQLAlchemy(metadata=metadata)
 
 class Restaurant(db.Model, SerializerMixin):
     __tablename__ = "restaurants"
@@ -12,7 +19,6 @@ class Restaurant(db.Model, SerializerMixin):
     name = db.Column(db.String)
     address = db.Column(db.String)
 
-    # Define one-to-many relationship with RestaurantPizza
     restaurant_pizzas = relationship("RestaurantPizza", back_populates="restaurant")
 
     def __repr__(self):
@@ -25,7 +31,6 @@ class Pizza(db.Model, SerializerMixin):
     name = db.Column(db.String)
     ingredients = db.Column(db.String)
 
-    # Define many-to-many relationship with RestaurantPizza
     restaurant_pizzas = relationship("RestaurantPizza", back_populates="pizza", cascade="all, delete-orphan")
 
     def __repr__(self):
@@ -39,10 +44,8 @@ class RestaurantPizza(db.Model, SerializerMixin):
     restaurant_id = db.Column(db.Integer, ForeignKey('restaurants.id'))
     pizza_id = db.Column(db.Integer, ForeignKey('pizzas.id'))
 
-    # Define many-to-one relationship with Restaurant
     restaurant = relationship("Restaurant", back_populates="restaurant_pizzas")
 
-    # Define many-to-one relationship with Pizza
     pizza = relationship("Pizza", back_populates="restaurant_pizzas")
 
     @validates('price')
@@ -53,13 +56,3 @@ class RestaurantPizza(db.Model, SerializerMixin):
 
     def __repr__(self):
         return f"<RestaurantPizza ${self.price}>"
-
-    def to_dict(self):
-        # Serialize the object attributes to a dictionary
-        pizza_data = {
-            "id": self.id,
-            "price": self.price,
-            "restaurant_id": self.restaurant_id,
-            "pizza_id": self.pizza_id
-        }
-        return pizza_data
